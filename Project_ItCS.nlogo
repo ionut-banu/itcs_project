@@ -2,17 +2,20 @@ extensions [bitmap]
 
 breed [controllers controller]
 
-breed [motors motor]
-motors-own [mid state]
-
-breed [products product]
-products-own [state conv]
-
 breed [post-sensors post-sensor]
 post-sensors-own [psid]
 
 breed [conflict-sensors conflict-sensor]
 conflict-sensors-own [csid]
+
+breed [motors motor]
+motors-own [mid state]
+
+breed [robots robot]
+robots [rid]
+
+breed [products product]
+products-own [state conv]
 
 breed [parts1 part1]
 breed [parts2 part2]
@@ -82,6 +85,126 @@ to place-controller
 
 end
 
+to process-controller ;comportament controller
+
+  if length productDetected > 0
+      [
+        ask motors
+        [
+          if mid < 3
+          [
+            ifelse member? mid productDetected or member? mid conflictDetected
+            [
+              set state 0
+            ]
+            [
+              set state 1
+            ]
+          ]
+
+          if mid = 3
+          [
+            ifelse member? 3 productDetected or member? 4 productDetected or member? 5 productDetected or member? mid conflictDetected
+            [
+              set state 0
+            ]
+            [
+              set state 1
+            ]
+          ]
+
+          if mid = 4
+          [
+            ifelse member? mid conflictDetected
+            [
+              set state 0
+            ]
+            [
+              set state 1
+            ]
+          ]
+
+        ]
+      ]
+
+end
+
+to place-post-sensors ;senzori ce detecteaza piesele de trec prin dreptul posturilor
+
+  create-post-sensors 1 [set psid 1 setxy 26 39 facexy 27 40 set shape "circle" set color yellow]
+  ;create-post-sensors 1 [set psid 1 setxy 27 39 facexy 28 40 set shape "circle" set color yellow]
+  create-post-sensors 1 [set psid 2 setxy 41 30 facexy 43 32 set shape "circle" set color yellow]
+  create-post-sensors 1 [set psid 3 setxy 31 22 facexy 32 21 set shape "circle" set color yellow]
+  create-post-sensors 1 [set psid 4 setxy 18 22 facexy 19 21 set shape "circle" set color yellow]
+  create-post-sensors 1 [set psid 5 setxy 11 22 facexy 13 20 set shape "circle" set color yellow]
+
+end
+
+to process-post-sensors ;comportament senzori post
+
+  ask post-sensors
+  [
+   let this psid
+   ifelse any? products in-cone 2 90
+    [
+
+      ifelse count products with [state = this - 1] in-cone 2 90 >= 1
+      [
+        set productDetected lput psid productDetected
+        set color red
+      ]
+      [
+        if member? psid productDetected
+          [
+            set productDetected remove psid productDetected
+            set color green
+          ]
+
+      ]
+    ]
+    [
+      set color yellow
+
+      set productDetected remove psid productDetected
+
+    ]
+  ]
+
+end
+
+to place-conflict-sensors ;senzori pentru evitarea coliziunilor la trecerea pe urmatoarea banda
+
+  create-conflict-sensors 1 [set csid 1 setxy 41 41 facexy 41 40 set shape "triangle" set color green]
+  create-conflict-sensors 1 [set csid 2 setxy 43 22 facexy 42 22 set shape "triangle" set color green]
+  create-conflict-sensors 1 [set csid 3 setxy 8 20 facexy 8 21 set shape "triangle" set color green]
+  create-conflict-sensors 1 [set csid 4 setxy 6 39 facexy 7 39 set shape "triangle" set color green]
+
+end
+
+to process-conflict-sensors ;comportament senzori conflict
+
+  ask conflict-sensors
+  [
+    let this csid
+    if this = 4
+    [
+      set this 0
+    ]
+    ifelse count products in-radius 2 > 1 and count motors with [mid = this + 1 and state = 0] = 1
+    [
+      set color yellow
+      set conflictDetected lput csid conflictDetected
+    ]
+    [
+      set color green
+      set conflictDetected remove csid conflictDetected
+
+    ]
+
+  ]
+
+end
+
 to place-motors  ;motoarele benzilor transportoare reprezentate prin sageti
 
   create-motors 1 [setxy 9 41 set mid 1]
@@ -118,31 +241,54 @@ to place-motors  ;motoarele benzilor transportoare reprezentate prin sageti
 
 end
 
-to place-post-sensors ;senzori ce detecteaza piesele de trec prin dreptul posturilor
+to process-motors ;indicarea starii motoarelor prin actualizarea culorii
 
-  create-post-sensors 1 [set psid 1 setxy 26 39 facexy 26 40 set shape "circle" set color yellow]
-  ;create-post-sensors 1 [set psid 1 setxy 27 39 facexy 27 40 set shape "circle" set color yellow]
-  create-post-sensors 1 [set psid 2 setxy 41 30 facexy 43 32 set shape "circle" set color yellow]
-  create-post-sensors 1 [set psid 3 setxy 31 22 facexy 32 21 set shape "circle" set color yellow]
-  create-post-sensors 1 [set psid 4 setxy 18 22 facexy 19 21 set shape "circle" set color yellow]
-  create-post-sensors 1 [set psid 5 setxy 11 22 facexy 13 20 set shape "circle" set color yellow]
-
+  ask motors
+  [
+    ifelse state = 1
+    [
+      set color green
+    ]
+    [
+      set color red
+    ]
+  ]
 
 end
 
-to place-conflict-sensors
+to place-parts
 
-  create-conflict-sensors 1 [set csid 1 setxy 41 41 facexy 41 40 set shape "triangle" set color green]
-  create-conflict-sensors 1 [set csid 2 setxy 43 22 facexy 42 22 set shape "triangle" set color green]
-  create-conflict-sensors 1 [set csid 3 setxy 8 20 facexy 8 21 set shape "triangle" set color green]
-  create-conflict-sensors 1 [set csid 4 setxy 6 39 facexy 7 39 set shape "triangle" set color green]
+  if count parts1 with [xcor = 22 and ycor = 41] = 0 and random 100 < prob-p1
+  [
+    create-parts1 1 [setxy 22 41 set shape "box" facexy 27 41 set color red]
+  ]
+
+  if count parts2 with [xcor = 43 and ycor = 32] = 0 and random 100 < prob-p1
+  [
+    create-parts2 1 [setxy 43 32 set shape "box" facexy 43 30 set color red]
+  ]
+
+  if count parts3 with [xcor = 35 and ycor = 20] = 0 and random 100 < prob-p1
+  [
+    create-parts3 1 [setxy 35 20 set shape "box" facexy 31 20 set color red]
+  ]
+
+  if count parts4 with [xcor = 21 and ycor = 20] = 0 and random 100 < prob-p1
+  [
+    create-parts4 1 [setxy 21 20 set shape "box" facexy 18 20 set color red]
+  ]
+
+  if count parts5 with [xcor = 13 and ycor = 20] = 0 and random 100 < prob-p1
+  [
+    create-parts5 1 [setxy 13 20 set shape "box" facexy 11 20 set color red]
+  ]
 
 end
 
 to place-products ;produsul in stare intermediara sau finala in functie de state
 
   create-products 1 [set state 0 setxy 12 40 set shape "box" set color white]
-  create-products 1 [set state 0 setxy 13 40 set shape "box" set color white]
+  ;create-products 1 [set state 0 setxy 13 40 set shape "box" set color white]
   ;create-products 1 [set state 0 setxy 10 40 set shape "box" set color white]
 
 end
@@ -154,7 +300,7 @@ to move-products ;deplasarea produsului pe benzile transportoare
 
     if ycor < 41 and ycor > 39 and xcor < 42 ;and any? motors with [mid = 1 and state = 1]  ;PE BANDA 1
     [
-      ifelse state = 0 and xcor = 27 and any? motors with [mid = 1 and state = 0] and any? parts1 with [xcor = 27 and ycor = 41]
+      ifelse state = 0 and (xcor = 27 or xcor = 26) and not any? (products-on patch-ahead 1) with [state = 0] and any? motors with [mid = 1 and state = 0] and any? parts1 with [xcor = 27 and ycor = 41]
       [
         set state 1
         ask parts1 with [xcor = 27 and ycor = 41] [die]
@@ -171,7 +317,7 @@ to move-products ;deplasarea produsului pe benzile transportoare
 
     if xcor < 43 and xcor > 41 and ycor > 21 ;and any? motors with [mid = 2 and state = 1]  ;PE BANDA 2
     [
-      ifelse state = 1 and ycor = 30 and any? motors with [mid = 2 and state = 0] and any? parts2 with [xcor = 43 and ycor = 30]
+      ifelse state = 1 and (ycor = 30 or ycor = 31) and not any? (products-on patch-ahead 1) with [state = 1] and any? motors with [mid = 2 and state = 0] and any? parts2 with [xcor = 43 and ycor = 30]
       [
         set state 2
         ask parts2 with [xcor = 43 and ycor = 30] [die]
@@ -244,50 +390,10 @@ to update-products ;actualizarea culorilor produsului in functie de stare
   ]
 end
 
-to process-motors ;indicarea starii motoarelor prin actualizarea culorii
-
-  ask motors
-  [
-    ifelse state = 1
-    [
-      set color green
-    ]
-    [
-      set color red
-    ]
-  ]
-
-end
 
 
-to place-parts
 
-  if count parts1 with [xcor = 22 and ycor = 41] = 0 and random 100 < prob-p1
-  [
-    create-parts1 1 [setxy 22 41 set shape "box" facexy 27 41 set color red]
-  ]
 
-  if count parts2 with [xcor = 43 and ycor = 32] = 0 and random 100 < prob-p1
-  [
-    create-parts2 1 [setxy 43 32 set shape "box" facexy 43 30 set color red]
-  ]
-
-  if count parts3 with [xcor = 35 and ycor = 20] = 0 and random 100 < prob-p1
-  [
-    create-parts3 1 [setxy 35 20 set shape "box" facexy 31 20 set color red]
-  ]
-
-  if count parts4 with [xcor = 21 and ycor = 20] = 0 and random 100 < prob-p1
-  [
-    create-parts4 1 [setxy 21 20 set shape "box" facexy 18 20 set color red]
-  ]
-
-  if count parts5 with [xcor = 13 and ycor = 20] = 0 and random 100 < prob-p1
-  [
-    create-parts5 1 [setxy 13 20 set shape "box" facexy 11 20 set color red]
-  ]
-
-end
 
 to move-parts ;deplasarea catre robotul manipulator
 
@@ -324,106 +430,9 @@ to move-parts ;deplasarea catre robotul manipulator
 end
 
 
-to process-post-sensors
-
-  ask post-sensors
-  [
-   let this psid
-   ifelse any? products-on patch-ahead 1
-    [
-
-      ifelse [state] of one-of products-on patch-ahead 1 = psid - 1
-      [
-        set productDetected lput psid productDetected
-        set color red
-      ]
-      [
-        if member? psid productDetected
-          [
-            set productDetected remove psid productDetected
-            set color green
-          ]
-
-      ]
-    ]
-    [
-      set color yellow
-
-      set productDetected remove psid productDetected
-
-    ]
-  ]
-
-end
-
-to process-controller
-
-  if length productDetected > 0
-      [
-        ask motors
-        [
-          if mid < 3
-          [
-            ifelse member? mid productDetected or member? mid conflictDetected
-            [
-              set state 0
-            ]
-            [
-              set state 1
-            ]
-          ]
-
-          if mid = 3
-          [
-            ifelse member? 3 productDetected or member? 4 productDetected or member? 5 productDetected or member? mid conflictDetected
-            [
-              set state 0
-            ]
-            [
-              set state 1
-            ]
-          ]
-
-          if mid = 4
-          [
-            ifelse member? mid conflictDetected
-            [
-              set state 0
-            ]
-            [
-              set state 1
-            ]
-          ]
-
-        ]
-      ]
-
-end
-
-to process-conflict-sensors
-  ask conflict-sensors
-  [
-    let this csid
-    if this = 4
-    [
-      set this 0
-    ]
-    ifelse count products in-radius 2 > 1 and count motors with [mid = this + 1 and state = 0] = 1
-    [
-      set color yellow
-      set conflictDetected lput csid conflictDetected
-    ]
-    [
-      set color green
-      set conflictDetected remove csid conflictDetected
-
-    ]
-
-  ]
 
 
 
-end
 
 
 
@@ -513,7 +522,7 @@ prob-p1
 prob-p1
 0
 100
-0.0
+16.0
 1
 1
 NIL
