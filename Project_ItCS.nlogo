@@ -12,10 +12,10 @@ breed [motors motor]
 motors-own [mid state]
 
 breed [robots robot]
-robots [rid]
+robots-own [rid]
 
 breed [products product]
-products-own [state conv]
+products-own [state]
 
 breed [parts1 part1]
 breed [parts2 part2]
@@ -428,7 +428,6 @@ to move-parts ;deplasarea catre robotul manipulator
   ]
 
 end
-
 
 
 
